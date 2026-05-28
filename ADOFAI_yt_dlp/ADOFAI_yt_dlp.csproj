@@ -7,7 +7,7 @@
         <AssemblyVersion>1.0.0.0</AssemblyVersion>
         <FileVersion>1.0.0.0</FileVersion>
         <NeutralLanguage>en-US</NeutralLanguage>
-        <AssemblyName>ADOAFI_yt_dlp</AssemblyName>
+        <AssemblyName>ADOFAI_yt_dlp</AssemblyName>
         <LangVersion>latest</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
     </PropertyGroup>
