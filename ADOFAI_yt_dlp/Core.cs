@@ -1,4 +1,6 @@
-﻿using ADOFAI_yt_dlp;
+﻿using ADOFAI;
+using ADOFAI_yt_dlp;
+using ADOFAI_yt_dlp.Patch;
 using HarmonyLib;
 using MelonLoader;
 using System.Diagnostics;
@@ -9,8 +11,6 @@ using System.Diagnostics;
 namespace ADOFAI_yt_dlp;
 
 public class Core : MelonMod {
-    private HarmonyLib.Harmony harmony = new(ADOFAI_yt_dlp.Info.Name);
-
     public override void OnInitializeMelon() => MelonCoroutines.Start(Initialize());
 
     private System.Collections.IEnumerator Initialize() {
@@ -39,38 +39,37 @@ public class Core : MelonMod {
             YtDlpManager.HasNode = false;
         }
 
-        Patch(harmony);
+        Patch(HarmonyInstance);
     }
 
     private void Patch(HarmonyLib.Harmony harmony) {
         harmony.Patch(
-            AccessTools.Method(typeof(RDEditorUtils), nameof(RDEditorUtils.CheckModsDependency)),
-            prefix: new(typeof(Patch.P_RDEditorUtils__CheckModsDependency), nameof(ADOFAI_yt_dlp.Patch.P_RDEditorUtils__CheckModsDependency.Prefix))
+            typeof(RDEditorUtils).GetMethod(nameof(RDEditorUtils.CheckModsDependency), [typeof(object[])]),
+            prefix: new(typeof(P_RDEditorUtils__CheckModsDependency), nameof(P_RDEditorUtils__CheckModsDependency.Prefix))
         );
-
         harmony.Patch(
-            AccessTools.Method(typeof(ADOFAI.LevelData), nameof(ADOFAI.LevelData.EncodeToDictionary)),
-            postfix: new(typeof(Patch.P_ADOFAI__LevelData__EncodeToDictionary), nameof(ADOFAI_yt_dlp.Patch.P_ADOFAI__LevelData__EncodeToDictionary.Postfix))
+            typeof(LevelData).GetMethod(nameof(LevelData.EncodeToDictionary)),
+            postfix: new(typeof(P_ADOFAI__LevelData__EncodeToDictionary), nameof(P_ADOFAI__LevelData__EncodeToDictionary.Postfix))
         );
-
         harmony.Patch(
-            AccessTools.Method(typeof(ADOFAI.LevelData), nameof(ADOFAI.LevelData.Decode)),
-            prefix: new(typeof(Patch.P_ADOFAI__LevelData__Decode), nameof(ADOFAI_yt_dlp.Patch.P_ADOFAI__LevelData__Decode.Prefix))
+            typeof(LevelData).GetMethod(nameof(LevelData.Decode)),
+            prefix: new(typeof(P_ADOFAI__LevelData__Decode), nameof(P_ADOFAI__LevelData__Decode.Prefix))
         );
-
         harmony.Patch(
-           AccessTools.Method(typeof(AudioManager), nameof(AudioManager.FindOrLoadAudioClipExternal)),
-           prefix: new(typeof(Patch.P_AudioManager__FindOrLoadAudioClipExternal), nameof(ADOFAI_yt_dlp.Patch.P_AudioManager__FindOrLoadAudioClipExternal.Prefix))
+            typeof(AudioManager).GetMethod(nameof(AudioManager.FindOrLoadAudioClipExternal)),
+           prefix: new(typeof(P_AudioManager__FindOrLoadAudioClipExternal), nameof(P_AudioManager__FindOrLoadAudioClipExternal.Prefix))
         );
-
         harmony.Patch(
-            AccessTools.Method(typeof(scnGame), nameof(scnGame.ReloadSong)),
-            prefix: new(typeof(Patch.P_scnGame__ReloadSong), nameof(ADOFAI_yt_dlp.Patch.P_scnGame__ReloadSong.Prefix))
+            typeof(scnGame).GetMethod(nameof(scnGame.ReloadSong)),
+            prefix: new(typeof(P_scnGame__ReloadSong), nameof(P_scnGame__ReloadSong.Prefix))
         );
-        
         harmony.Patch(
-            AccessTools.Method(typeof(scnEditor), nameof(scnEditor.Play)),
-            prefix: new(typeof(Patch.P_scnEditor__Play), nameof(ADOFAI_yt_dlp.Patch.P_scnEditor__Play.Prefix))
+            typeof(scnEditor).GetMethod(nameof(scnEditor.PublishToSteamCo)), 
+            prefix: new(typeof(P_scnEditor__PublishToSteamCo), nameof(P_scnEditor__PublishToSteamCo.Prefix))
+        );
+        harmony.Patch(
+            typeof(scnEditor).GetMethod(nameof(scnEditor.Play)),
+            prefix: new(typeof(P_scnEditor__Play), nameof(P_scnEditor__Play.Prefix))
         );
     }
 

@@ -20,8 +20,7 @@ public static class P_ADOFAI__LevelData__EncodeToDictionary {
                 case IList list:
                     for(int i = 0; i < list.Count; i++) {
                         if(list[i] is string modName) {
-                            if(string.Equals(modName, "YouTubeStream", StringComparison.OrdinalIgnoreCase) ||
-                               string.Equals(modName, Info.Name, StringComparison.OrdinalIgnoreCase)) {
+                            if(modName == Info.Name || string.Equals(modName, "YouTubeStream", StringComparison.OrdinalIgnoreCase)) {
                                 continue;
                             }
                         }
@@ -35,6 +34,7 @@ public static class P_ADOFAI__LevelData__EncodeToDictionary {
         mods.Add(Info.Name);
 
         settings["requiredMods"] = mods.ToArray();
+        settings["songURL"] = YtDlpManager.CurrentUrl;
     }
 }
 
@@ -53,7 +53,7 @@ public static class P_ADOFAI__LevelData__Decode {
            !string.IsNullOrWhiteSpace(url)) {
 
             YtDlpManager.CurrentUrl = url;
+            MelonLogger.Msg(YtDlpManager.CurrentUrl);
         }
-        MelonLogger.Msg(YtDlpManager.CurrentUrl);
     }
 }
