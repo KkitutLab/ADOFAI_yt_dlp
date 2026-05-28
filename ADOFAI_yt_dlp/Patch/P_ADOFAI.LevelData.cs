@@ -1,11 +1,8 @@
 using System.Collections;
-using HarmonyLib;
 
 namespace ADOFAI_yt_dlp.Patch;
 
-[HarmonyPatch(typeof(ADOFAI.LevelData), nameof(ADOFAI.LevelData.EncodeToDictionary))]
 public static class P_ADOFAI__LevelData__EncodeToDictionary {
-    [HarmonyPostfix]
     public static void Postfix(ref Dictionary<string, object> __result) {
         if(!__result.TryGetValue("settings", out var settingsObj)) {
             return;
@@ -48,9 +45,7 @@ public static class P_ADOFAI__LevelData__EncodeToDictionary {
     }
 }
 
-[HarmonyPatch(typeof(ADOFAI.LevelData), nameof(ADOFAI.LevelData.Decode))]
 public static class P_ADOFAI__LevelData__Decode {
-    [HarmonyPrefix]
     public static void Prefix(Dictionary<string, object> dict) {
         if(!dict.TryGetValue("settings", out var settingsObj)) {
             return;
@@ -60,7 +55,7 @@ public static class P_ADOFAI__LevelData__Decode {
             return;
         }
 
-        if (!settings.TryGetValue("requiredMods", out var modsObj) || modsObj is not IList list) {
+        if(!settings.TryGetValue("requiredMods", out var modsObj) || modsObj is not IList list) {
             return;
         }
 

@@ -1,9 +1,7 @@
-using HarmonyLib;
 using MelonLoader;
 
 namespace ADOFAI_yt_dlp.Patch;
 
-[HarmonyPatch(typeof(scnEditor), nameof(scnEditor.Play))]
 public static class P_scnEditor__Play {
     public static bool Prefix(scnEditor __instance) {
         if(YtDlpLoader.IsLoading) {
