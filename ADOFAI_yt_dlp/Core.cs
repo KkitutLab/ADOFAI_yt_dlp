@@ -34,18 +34,33 @@ public class Core : MelonMod {
 
     private void Patch(HarmonyLib.Harmony harmony) {
         harmony.Patch(
+            AccessTools.Method(typeof(RDEditorUtils), nameof(RDEditorUtils.CheckModsDependency)),
+            prefix: new(typeof(Patch.P_RDEditorUtils__CheckModsDependency), nameof(ADOFAI_yt_dlp.Patch.P_RDEditorUtils__CheckModsDependency.Prefix))
+        );
+
+        harmony.Patch(
             AccessTools.Method(typeof(ADOFAI.LevelData), nameof(ADOFAI.LevelData.EncodeToDictionary)),
-            postfix: new HarmonyMethod(typeof(Patch.P_ADOFAI__LevelData__EncodeToDictionary), nameof(ADOFAI_yt_dlp.Patch.P_ADOFAI__LevelData__EncodeToDictionary.Postfix))
+            postfix: new(typeof(Patch.P_ADOFAI__LevelData__EncodeToDictionary), nameof(ADOFAI_yt_dlp.Patch.P_ADOFAI__LevelData__EncodeToDictionary.Postfix))
         );
 
         harmony.Patch(
             AccessTools.Method(typeof(ADOFAI.LevelData), nameof(ADOFAI.LevelData.Decode)),
-            prefix: new HarmonyMethod(typeof(Patch.P_ADOFAI__LevelData__Decode), nameof(ADOFAI_yt_dlp.Patch.P_ADOFAI__LevelData__Decode.Prefix))
+            prefix: new(typeof(Patch.P_ADOFAI__LevelData__Decode), nameof(ADOFAI_yt_dlp.Patch.P_ADOFAI__LevelData__Decode.Prefix))
         );
 
         harmony.Patch(
+           AccessTools.Method(typeof(AudioManager), nameof(AudioManager.FindOrLoadAudioClipExternal)),
+           prefix: new(typeof(Patch.P_AudioManager__FindOrLoadAudioClipExternal), nameof(ADOFAI_yt_dlp.Patch.P_AudioManager__FindOrLoadAudioClipExternal.Prefix))
+        );
+
+        harmony.Patch(
+            AccessTools.Method(typeof(scnGame), nameof(scnGame.ReloadSong)),
+            prefix: new(typeof(Patch.P_scnGame__ReloadSong), nameof(ADOFAI_yt_dlp.Patch.P_scnGame__ReloadSong.Prefix))
+        );
+        
+        harmony.Patch(
             AccessTools.Method(typeof(scnEditor), nameof(scnEditor.Play)),
-            prefix: new HarmonyMethod(typeof(Patch.P_scnEditor__Play), nameof(ADOFAI_yt_dlp.Patch.P_scnEditor__Play.Prefix))
+            prefix: new(typeof(Patch.P_scnEditor__Play), nameof(ADOFAI_yt_dlp.Patch.P_scnEditor__Play.Prefix))
         );
     }
 

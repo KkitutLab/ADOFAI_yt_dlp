@@ -1,3 +1,4 @@
+using MelonLoader;
 using System.Collections;
 
 namespace ADOFAI_yt_dlp.Patch;
@@ -12,36 +13,27 @@ public static class P_ADOFAI__LevelData__EncodeToDictionary {
             return;
         }
 
+        var mods = new List<object>();
+
         if(settings.TryGetValue("requiredMods", out var modsObj)) {
             switch(modsObj) {
-                case List<object> list:
-                    if(!list.Contains(Info.Name)) {
-                        list.Add(Info.Name);
+                case IList list:
+                    for(int i = 0; i < list.Count; i++) {
+                        if(list[i] is string modName) {
+                            if(modName is "YoutubeStream" or Info.Name) {
+                                continue;
+                            }
+                        }
+
+                        mods.Add(list[i]);
                     }
-                    break;
-
-                case object[] array:
-                    var newList = new List<object>(array);
-
-                    if(!newList.Contains(Info.Name)) {
-                        newList.Add(Info.Name);
-                    }
-
-                    settings["requiredMods"] = newList;
                     break;
             }
-        } else {
-            settings["requiredMods"] = new List<object> {
-                Info.Name
-            };
         }
 
-        if(settings.TryGetValue("songURL", out var songUrlObj)
-           && songUrlObj is string songUrl
-           && !string.IsNullOrWhiteSpace(songUrl)) {
+        mods.Add(Info.Name);
 
-            settings["songFilename"] = "";
-        }
+        settings["requiredMods"] = mods.ToArray();
     }
 }
 
@@ -55,14 +47,12 @@ public static class P_ADOFAI__LevelData__Decode {
             return;
         }
 
-        if(!settings.TryGetValue("requiredMods", out var modsObj) || modsObj is not IList list) {
-            return;
-        }
+        if(settings.TryGetValue("songURL", out var urlObj) &&
+           urlObj is string url &&
+           !string.IsNullOrWhiteSpace(url)) {
 
-        for(int i = 0; i < list.Count; i++) {
-            if(list[i] is string and "YoutubeStream") {
-                list[i] = Info.Name; // fuck u
-            }
+            YtDlpManager.CurrentUrl = url;
         }
+        MelonLogger.Msg(YtDlpManager.CurrentUrl);
     }
 }
