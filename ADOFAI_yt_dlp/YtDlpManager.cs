@@ -7,14 +7,17 @@ using UnityEngine.Networking;
 namespace ADOFAI_yt_dlp;
 
 public static class YtDlpManager {
+    public const string YT_DLP_ARGS = "--no-playlist -f bestaudio --extract-audio --audio-format wav --newline --progress --output \"{0}\" \"{1}\"";
+
+    public const string YT_DLP_NODE_ARGS = "--no-playlist -f bestaudio --extract-audio --audio-format wav --newline --progress --js-runtimes node --remote-components ejs:github --output \"{0}\" \"{1}\"";
+    public static bool HasNode = false;
+    
     public static bool IsLoading { get; private set; }
 
     public static string CurrentUrl = string.Empty;
 
     private static string cachedUrl = string.Empty;
     private static AudioClip cachedClip = null!;
-    private static string tempPath = string.Empty;
-
     private static string runningUrl = string.Empty;
 
     public static bool TryHandlePlay(scnEditor editor) {
@@ -29,7 +32,7 @@ public static class YtDlpManager {
         }
 
         if(ApplyCachedClip(CurrentUrl)) {
-            MelonLogger.Msg("cache ok");
+            MelonLogger.Msg("cache hit");
             return true;
         }
 
@@ -47,74 +50,74 @@ public static class YtDlpManager {
             return;
         }
 
-        if(runningUrl == url) {
-            return;
-        }
-
-        runningUrl = url;
         IsLoading = true;
+        runningUrl = url;
 
-        Task.Run(() => RunYtDlp(url));
+        Task.Run(() => {
+            string path = RunYtDlp(url);
+
+            if(string.IsNullOrWhiteSpace(path)) {
+                IsLoading = false;
+                runningUrl = string.Empty;
+                return;
+            }
+
+            MelonCoroutines.Start(LoadClip(path, url));
+        });
     }
 
-    private static void RunYtDlp(string url) {
-        tempPath = GetTempPath(url);
+    private static string RunYtDlp(string url) {
+        string path = GetTempPath(url);
 
         var psi = new ProcessStartInfo {
             FileName = "yt-dlp",
-            Arguments =
-                $"--no-playlist -f bestaudio " +
-                $"--extract-audio --audio-format wav " +
-                $"--newline --progress " +
-                $"--output \"{tempPath}\" \"{url}\"",
+            Arguments = string.Format(HasNode ? YT_DLP_NODE_ARGS : YT_DLP_ARGS, path, url),
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
 
-        using var process = Process.Start(psi);
-
-        if(process == null) {
-            IsLoading = false;
-            return;
+        using var p = Process.Start(psi);
+        if(p == null) {
+            return null!;
         }
 
-        string? line;
-
-        while((line = process.StandardOutput.ReadLine()) != null ||
-              (line = process.StandardError.ReadLine()) != null) {
-            if(!string.IsNullOrWhiteSpace(line)) {
-                MelonLogger.Msg(line);
+        var stdoutTask = Task.Run(() => {
+            while(!p.StandardOutput.EndOfStream) {
+                var line = p.StandardOutput.ReadLine();
+                if(!string.IsNullOrWhiteSpace(line)) {
+                    MelonLogger.Msg(line);
+                }
             }
-        }
+        });
 
-        process.WaitForExit();
+        var stderrTask = Task.Run(() => {
+            while(!p.StandardError.EndOfStream) {
+                var line = p.StandardError.ReadLine();
+                if(!string.IsNullOrWhiteSpace(line)) {
+                    MelonLogger.Msg(line);
+                }
+            }
+        });
 
-        IsLoading = false;
+        p.WaitForExit();
+        Task.WaitAll(stdoutTask, stderrTask);
+
+        return File.Exists(path) ? path : null!;
     }
 
-    private static IEnumerator LoadClipCoroutine(string url, string path) {
-        float timeout = 10f;
-        float t = 0f;
-
-        while(!File.Exists(path) && t < timeout) {
-            t += Time.deltaTime;
-            yield return null;
-        }
-
-        if(!File.Exists(path)) {
-            MelonLogger.Error("file not found");
-            yield break;
-        }
-
+    private static IEnumerator LoadClip(string path, string url) {
         using var req =
             UnityWebRequestMultimedia.GetAudioClip("file://" + path, AudioType.WAV);
 
         yield return req.SendWebRequest();
 
         if(req.result != UnityWebRequest.Result.Success) {
-            MelonLogger.Error("clip load failed");
+            MelonLogger.Msg("clip load failed");
+
+            IsLoading = false;
+            runningUrl = string.Empty;
             yield break;
         }
 
@@ -122,6 +125,9 @@ public static class YtDlpManager {
         cachedUrl = url;
 
         TryDelete(path);
+
+        IsLoading = false;
+        runningUrl = string.Empty;
 
         MelonLogger.Msg("ready");
     }

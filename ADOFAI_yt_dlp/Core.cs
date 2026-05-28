@@ -14,20 +14,30 @@ public class Core : MelonMod {
     public override void OnInitializeMelon() => MelonCoroutines.Start(Initialize());
 
     private System.Collections.IEnumerator Initialize() {
-        var task = Task.Run(GetYtDlpVersion);
+        var ytTask = Task.Run(GetYtDlpVersion);
+        var nodeTask = Task.Run(GetNodeVersion);
 
-        while(!task.IsCompleted) {
+        while(!ytTask.IsCompleted || !nodeTask.IsCompleted) {
             yield return null;
         }
 
-        string? version = task.Result;
+        string? ytVersion = ytTask.Result;
+        string? nodeVersion = nodeTask.Result;
 
-        if(string.IsNullOrWhiteSpace(version)) {
+        if(string.IsNullOrWhiteSpace(ytVersion)) {
             MelonLogger.Warning("yt-dlp not found, Disabled");
             yield break;
         }
 
-        MelonLogger.Msg($"yt-dlp {version}");
+        MelonLogger.Msg($"yt-dlp {ytVersion}");
+
+        if(!string.IsNullOrWhiteSpace(nodeVersion)) {
+            YtDlpManager.HasNode = true;
+            MelonLogger.Msg($"node {nodeVersion}");
+            MelonLogger.Msg("node args enabled");
+        } else {
+            YtDlpManager.HasNode = false;
+        }
 
         Patch(harmony);
     }
@@ -83,6 +93,36 @@ public class Core : MelonMod {
 
             process.WaitForExit();
             return process.ExitCode != 0 ? null : process.StandardOutput.ReadLine()?.Trim();
+        } catch {
+            return null;
+        }
+    }
+
+    private static string? GetNodeVersion() {
+        try {
+            var psi = new ProcessStartInfo {
+                FileName = "node",
+                Arguments = "--version",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(psi);
+
+            if(process == null) {
+                return null;
+            }
+
+            string output = process.StandardOutput.ReadLine();
+            process.WaitForExit();
+
+            if(process.ExitCode != 0) {
+                return null;
+            }
+
+            return output?.Trim();
         } catch {
             return null;
         }
