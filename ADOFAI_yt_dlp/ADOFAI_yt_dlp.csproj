@@ -5,7 +5,7 @@
         <RootNamespace>ADOFAI_yt_dlp</RootNamespace>
         <Nullable>enable</Nullable>
         <AssemblyVersion>1.0.0.0</AssemblyVersion>
-        <FileVersion>1.0.0.0</FileVersion>
+        <FileVersion>1.1.0.0</FileVersion>
         <NeutralLanguage>en-US</NeutralLanguage>
         <AssemblyName>ADOFAI_yt_dlp</AssemblyName>
         <LangVersion>latest</LangVersion>
