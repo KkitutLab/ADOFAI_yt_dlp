@@ -20,7 +20,8 @@ public static class P_ADOFAI__LevelData__EncodeToDictionary {
                 case IList list:
                     for(int i = 0; i < list.Count; i++) {
                         if(list[i] is string modName) {
-                            if(modName is "YoutubeStream" or Info.Name) {
+                            if(string.Equals(modName, "YouTubeStream", StringComparison.OrdinalIgnoreCase) ||
+                               string.Equals(modName, Info.Name, StringComparison.OrdinalIgnoreCase)) {
                                 continue;
                             }
                         }
