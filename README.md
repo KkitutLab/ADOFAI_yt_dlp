@@ -10,6 +10,12 @@ Temporary files are deleted immediately after loading, and results are cached in
 * [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 * Optional: [Node.js](https://nodejs.org/) (>=22) (required for some YouTube JS challenge cases)
 
+## Installation
+
+This Mod Uses MelonLoader.  
+  
+Extract the contents of the downloaded mod zip file and paste all the extracted contents directly into your main game folder.
+
 ## Usage
 
 Add `songURL` to level settings:
