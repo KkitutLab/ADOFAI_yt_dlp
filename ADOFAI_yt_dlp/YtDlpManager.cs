@@ -7,13 +7,8 @@ using UnityEngine.Networking;
 namespace ADOFAI_yt_dlp;
 
 public static class YtDlpManager {
-    public const string YT_DLP_ARGS = "--no-playlist -f bestaudio --extract-audio --audio-format wav --newline --progress --output \"{0}\" \"{1}\"";
-
-    public const string YT_DLP_NODE_ARGS = "--no-playlist -f bestaudio --extract-audio --audio-format wav --newline --progress --js-runtimes node --remote-components ejs:github --output \"{0}\" \"{1}\"";
     public static bool HasNode = false;
-    
     public static bool IsLoading { get; private set; }
-
     public static string CurrentUrl = string.Empty;
 
     private static string cachedUrl = string.Empty;
@@ -41,6 +36,12 @@ public static class YtDlpManager {
             return false;
         }
 
+        if(!Uri.TryCreate(CurrentUrl, UriKind.Absolute, out Uri uriResult) ||
+            (uriResult.Scheme != Uri.UriSchemeHttp && uriResult.Scheme != Uri.UriSchemeHttps)) {
+            MelonLogger.Warning("Invalid URL blocked");
+            return false;
+        }
+
         StartLoad(CurrentUrl);
         return false;
     }
@@ -53,8 +54,10 @@ public static class YtDlpManager {
         IsLoading = true;
         runningUrl = url;
 
+        string safePath = GetTempPath();
+
         Task.Run(() => {
-            string path = RunYtDlp(url);
+            string path = RunYtDlp(url, safePath);
 
             if(string.IsNullOrWhiteSpace(path)) {
                 IsLoading = false;
@@ -66,17 +69,36 @@ public static class YtDlpManager {
         });
     }
 
-    private static string RunYtDlp(string url) {
-        string path = GetTempPath(url);
-
+    private static string RunYtDlp(string url, string destinationPath) {
         var psi = new ProcessStartInfo {
             FileName = "yt-dlp",
-            Arguments = string.Format(HasNode ? YT_DLP_NODE_ARGS : YT_DLP_ARGS, path, url),
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
+
+        psi.ArgumentList.Add("--no-playlist");
+        psi.ArgumentList.Add("-f");
+        psi.ArgumentList.Add("bestaudio");
+        psi.ArgumentList.Add("--extract-audio");
+        psi.ArgumentList.Add("--audio-format");
+        psi.ArgumentList.Add("wav");
+        psi.ArgumentList.Add("--newline");
+        psi.ArgumentList.Add("--progress");
+
+        if(HasNode) {
+            psi.ArgumentList.Add("--js-runtimes");
+            psi.ArgumentList.Add("node");
+            psi.ArgumentList.Add("--remote-components");
+            psi.ArgumentList.Add("ejs:github");
+        }
+
+        psi.ArgumentList.Add("--output");
+        psi.ArgumentList.Add(destinationPath);
+
+        psi.ArgumentList.Add("--");
+        psi.ArgumentList.Add(url);
 
         using var p = Process.Start(psi);
         if(p == null) {
@@ -104,18 +126,16 @@ public static class YtDlpManager {
         p.WaitForExit();
         Task.WaitAll(stdoutTask, stderrTask);
 
-        return File.Exists(path) ? path : null!;
+        return File.Exists(destinationPath) ? destinationPath : null!;
     }
 
     private static IEnumerator LoadClip(string path, string url) {
-        using var req =
-            UnityWebRequestMultimedia.GetAudioClip("file://" + path, AudioType.WAV);
+        using var req = UnityWebRequestMultimedia.GetAudioClip("file://" + path, AudioType.WAV);
 
         yield return req.SendWebRequest();
 
         if(req.result != UnityWebRequest.Result.Success) {
-            MelonLogger.Msg("clip load failed");
-
+            MelonLogger.Warning("clip load failed");
             IsLoading = false;
             runningUrl = string.Empty;
             yield break;
@@ -141,10 +161,10 @@ public static class YtDlpManager {
         return true;
     }
 
-    private static string GetTempPath(string url) {
+    private static string GetTempPath() {
         return Path.Combine(
             Path.GetTempPath(),
-            "adofai_yt_" + url.GetHashCode() + ".wav"
+            "adofai_yt_" + Guid.NewGuid().ToString("N") + ".wav"
         );
     }
 
