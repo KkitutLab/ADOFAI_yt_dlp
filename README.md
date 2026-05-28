@@ -1,17 +1,18 @@
 # ADOFAI_yt_dlp
 
-Loads audio directly from online sources through `yt-dlp`.
+Loads audio from online sources using `yt-dlp`.
 
-No audio files are written to disk.
-Audio is resolved and streamed entirely in memory.
+Audio is downloaded to a temporary WAV file and loaded into a Unity `AudioClip`.
+Temporary files are deleted immediately after loading, and results are cached in memory during runtime.
 
 ## Requirements
 
-* `yt-dlp`
+* [yt-dlp](https://github.com/yt-dlp/yt-dlp)
+* Optional: [Node.js](https://nodejs.org/) (>=22) (required for some YouTube JS challenge cases)
 
 ## Usage
 
-Add the following property to level settings:
+Add `songURL` to level settings:
 
 ```json
 {
@@ -19,7 +20,7 @@ Add the following property to level settings:
 }
 ```
 
-Behavior:
+## Behavior
 
 * `songURL` missing
   → default ADOFAI behavior
@@ -28,45 +29,29 @@ Behavior:
   → default ADOFAI behavior
 
 * `songURL` exists + `songFilename` empty
-  → audio loaded through `yt-dlp`
+  → audio is resolved via `yt-dlp` and used as level music
 
 ## Notes
 
-* Only one audio clip is cached at a time.
-* Cached clip is reused when the same URL is loaded again.
-* Playback is blocked while audio is loading.
-* No editor UI integration.
-* Logging is handled through MelonLoader console output only.
+* Only one audio clip is cached at a time
+* Same URL uses cached audio (no re-download)
+* Playback is blocked while loading
+* No editor integration
 
 ## Disclaimer
 
-This software is provided "as is", without warranty of any kind, express or implied, including but not limited to merchantability, fitness for a particular purpose, and noninfringement.
+This project does not include, host, distribute, or provide any audio or media content.
 
-This project does not provide, distribute, host, mirror, archive, upload, or include any copyrighted audio or media content.
+All media retrieval is performed by the end user through externally supplied URLs and third-party services.
 
-All media access is initiated exclusively by the end user through externally supplied URLs and third-party services.
+The developer does not control, endorse, or guarantee the content accessed through these services.
 
-The end user is solely responsible for:
+The user is solely responsible for:
 
 * legality of accessed content
 * copyright compliance
-* licensing permissions
-* regional law compliance
-* redistribution
-* streaming or public playback
-* any resulting legal consequences
+* licensing requirements
+* adherence to platform terms of service
+* any consequences arising from use
 
-The developer does not endorse or encourage copyright infringement or unauthorized distribution of protected content.
-
-Under no circumstances shall the developer be held liable for:
-
-* copyright violations
-* DMCA claims
-* unauthorized streaming
-* misuse of third-party services
-* data loss
-* service bans
-* legal disputes
-* indirect or direct damages arising from use of this software
-
-By using this project, the user accepts full responsibility for all actions performed with it.
+The developer shall not be held liable for any damages, claims, or legal issues resulting from the use of this software.
