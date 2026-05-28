@@ -77,13 +77,13 @@ public static class YtDlpManager {
 
         if(process == null) {
             IsLoading = false;
-            runningUrl = string.Empty;
             return;
         }
 
-        while(!process.HasExited) {
-            string line = process.StandardError.ReadLine();
+        string? line;
 
+        while((line = process.StandardOutput.ReadLine()) != null ||
+              (line = process.StandardError.ReadLine()) != null) {
             if(!string.IsNullOrWhiteSpace(line)) {
                 MelonLogger.Msg(line);
             }
@@ -91,10 +91,7 @@ public static class YtDlpManager {
 
         process.WaitForExit();
 
-        MelonCoroutines.Start(LoadClipCoroutine(url, tempPath));
-
         IsLoading = false;
-        runningUrl = string.Empty;
     }
 
     private static IEnumerator LoadClipCoroutine(string url, string path) {
