@@ -64,10 +64,6 @@ public class Core : MelonMod {
             prefix: new(typeof(P_scnGame__ReloadSong), nameof(P_scnGame__ReloadSong.Prefix))
         );
         harmony.Patch(
-            typeof(scnEditor).GetMethod(nameof(scnEditor.PublishToSteamCo)), 
-            prefix: new(typeof(P_scnEditor__PublishToSteamCo), nameof(P_scnEditor__PublishToSteamCo.Prefix))
-        );
-        harmony.Patch(
             typeof(scnEditor).GetMethod(nameof(scnEditor.Play)),
             prefix: new(typeof(P_scnEditor__Play), nameof(P_scnEditor__Play.Prefix))
         );
