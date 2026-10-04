@@ -10,8 +10,18 @@ Temporary files are deleted immediately after loading, and results are cached in
 * [yt-dlp](https://github.com/yt-dlp/yt-dlp) (2025.11.12+ recommended, EJS support)
 * [ffmpeg](https://ffmpeg.org/) (required for wav conversion)
 * JS runtime for YouTube (at least one):
-  * [Deno](https://deno.com/) (>=2.3.0, recommended, enabled by default)
-  * [Node.js](https://nodejs.org/) (>=22, enabled via `--js-runtimes node`)
+  * [Deno](https://deno.com/) (>=2.3.0, recommended)
+  * [Node.js](https://nodejs.org/) (>=22)
+
+The mod detects node/deno on startup and passes the right `--js-runtimes` flag to yt-dlp by itself. You don't need to configure yt-dlp manually:
+
+* node only → `--js-runtimes node`
+* deno only → no flag (deno is yt-dlp's default)
+* both → `--js-runtimes deno,node`
+* found outside `PATH` → full path is passed (e.g. `--js-runtimes deno:/home/user/.deno/bin/deno`)
+
+The exact flag used is printed to the MelonLoader log as `js-runtimes: ...`.
+When a JS runtime is in use, `--remote-components ejs:github` is also added so yt-dlp can fetch its challenge-solver scripts.
 
 All executables must be discoverable via `PATH`, or placed next to the game / `Mods` folder.
 `~/.deno/bin` and `~/.local/bin` are also checked.
