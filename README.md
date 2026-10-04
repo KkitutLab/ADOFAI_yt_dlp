@@ -14,15 +14,23 @@ Temporary files are deleted immediately after loading, and results are cached in
   * [Node.js](https://nodejs.org/) (>=22, enabled via `--js-runtimes node`)
 
 All executables must be discoverable via `PATH`, or placed next to the game / `Mods` folder.
+`~/.deno/bin` and `~/.local/bin` are also checked.
 
-To pin a JS runtime manually, edit `UserData/MelonPreferences.cfg` (created on first run):
+## Config
+
+Pin a JS runtime manually in `UserData/MelonPreferences.cfg` (created on first run):
 
 ```toml
 [ADOFAI_yt_dlp]
 JsRuntimePath = "/home/user/.deno/bin/deno"
 ```
 
-`JsRuntimePath` accepts a file or a folder. Whether it is node or deno is detected automatically (by file name, or by `--version` output). Empty = auto-detect.
+* File or folder path both work (a folder is scanned for node/deno)
+* node vs deno is auto-detected (file name, then `--version` output)
+* Empty = auto-detect
+* Invalid path = warning + fallback to auto-detect
+
+If yt-dlp logs `No supported JavaScript runtime could be found`, either install Deno/Node or set `JsRuntimePath` above.
 
 ## Installation
 
@@ -55,9 +63,10 @@ Add `songURL` to level settings:
 
 * Only one audio clip is cached at a time
 * Same URL uses cached audio (no re-download)
-* Playback is blocked while loading, then auto-played when ready
 * Download starts as soon as the level loads
-* No editor integration
+* Playback is blocked while loading, then auto-played when ready
+* Works in editor and in-game (`scnGame` / CLS)
+* No editor UI integration
 
 ## Disclaimer
 
