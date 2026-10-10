@@ -28,14 +28,25 @@ public class Core : MelonMod {
             manualJs = (prefJsRuntimePath.Value ?? string.Empty).Trim();
         } catch { }
 
+        // Process probing (yt-dlp.exe can take seconds to start) must not block the Unity main thread.
+        var detectTask = Task.Run(() => Detect(manualJs));
+        while(!detectTask.IsCompleted) {
+            yield return null;
+        }
+
+        if(detectTask.IsFaulted) {
+            MelonLogger.Error($"tool detection failed: {detectTask.Exception?.GetBaseException().Message}");
+        }
+
+        Patch(HarmonyInstance);
+    }
+
+    private static void Detect(string manualJs) {
         var ytTask = Task.Run(() => FindExe("yt-dlp", "yt-dlp.exe"));
         var nodeTask = Task.Run(() => FindExe("node", "node.exe"));
         var denoTask = Task.Run(() => FindExe("deno", "deno.exe"));
         var ffmpegTask = Task.Run(() => FindExe("ffmpeg", "ffmpeg.exe"));
-
-        while(!ytTask.IsCompleted || !nodeTask.IsCompleted || !denoTask.IsCompleted || !ffmpegTask.IsCompleted) {
-            yield return null;
-        }
+        Task.WaitAll(ytTask, nodeTask, denoTask, ffmpegTask);
 
         string? ytPath = ytTask.Result;
         string? autoNodePath = nodeTask.Result;
@@ -72,11 +83,17 @@ public class Core : MelonMod {
             ? (autoDenoPath != null ? TryGetVersion(autoDenoPath, "--version") : null)
             : (effDenoPath != null ? TryGetVersion(effDenoPath, "--version") : null);
 
-        string? ytVersion = ytPath != null ? TryGetVersion(ytPath, "--version") : null;
-        string? ffmpegVersion = ffmpegPath != null ? TryGetVersion(ffmpegPath, "-version") : null;
+        // yt-dlp.exe is a PyInstaller onefile build that unpacks itself on every launch,
+        // so its first start (cold cache, antivirus scan, game still loading) can be slow.
+        string? ytVersion = ytPath != null ? TryGetVersion(ytPath, "--version", 30000, logFailure: true) : null;
+        string? ffmpegVersion = ffmpegPath != null ? TryGetVersion(ffmpegPath, "-version", 10000, logFailure: true) : null;
 
-        if(string.IsNullOrWhiteSpace(ytVersion) || ytPath == null) {
+        if(ytPath == null) {
             MelonLogger.Warning("yt-dlp not found, downloads disabled (levels still load)");
+        } else if(string.IsNullOrWhiteSpace(ytVersion)) {
+            YtDlpManager.YtDlpPath = ytPath;
+            YtDlpManager.YtDlpSupportsEjs = true;
+            MelonLogger.Warning($"yt-dlp version unknown, will still try to use it [{ytPath}]");
         } else {
             YtDlpManager.YtDlpPath = ytPath;
             YtDlpManager.YtDlpSupportsEjs = CheckYtDlpEjsSupport(ytVersion);
@@ -121,13 +138,16 @@ public class Core : MelonMod {
 
         if(!string.IsNullOrWhiteSpace(ffmpegVersion)) {
             YtDlpManager.FfmpegAvailable = true;
+            YtDlpManager.FfmpegPath = ffmpegPath;
             MelonLogger.Msg($"ffmpeg found [{ffmpegPath}]");
+        } else if(ffmpegPath != null) {
+            YtDlpManager.FfmpegAvailable = true;
+            YtDlpManager.FfmpegPath = ffmpegPath;
+            MelonLogger.Warning($"ffmpeg version unknown, will still try to use it [{ffmpegPath}]");
         } else {
             YtDlpManager.FfmpegAvailable = false;
             MelonLogger.Warning("ffmpeg not found, wav conversion via yt-dlp will fail");
         }
-
-        Patch(HarmonyInstance);
     }
 
     private void Patch(HarmonyLib.Harmony harmony) {
@@ -136,7 +156,10 @@ public class Core : MelonMod {
                 nameof(RDEditorUtils.CheckModsDependency),
                 BindingFlags.Public | BindingFlags.Static,
                 null, new[] { typeof(object[]) }, null),
-            prefix: new HarmonyMethod(typeof(P_RDEditorUtils__CheckModsDependency), nameof(P_RDEditorUtils__CheckModsDependency.Prefix)),
+            // Must run before other mods' prefixes (e.g. Quartz's RequiredModsGate) that read `mods` and skip the original.
+            prefix: new HarmonyMethod(typeof(P_RDEditorUtils__CheckModsDependency), nameof(P_RDEditorUtils__CheckModsDependency.Prefix)) {
+                priority = HarmonyLib.Priority.First
+            },
             postfix: null,
             name: "RDEditorUtils.CheckModsDependency"
         );
@@ -277,17 +300,50 @@ public class Core : MelonMod {
                 }
             } catch { }
 
-            var fileNames = new List<string>();
-            foreach(string baseName in names) {
-                if(!fileNames.Contains(baseName)) {
-                    fileNames.Add(baseName);
+            if(isWindows) {
+                // The game inherits PATH from Steam, which keeps the PATH it had when it was started.
+                // Tools installed or re-added to PATH since then are only visible in the registry.
+                foreach(var target in new[] { EnvironmentVariableTarget.User, EnvironmentVariableTarget.Machine }) {
+                    try {
+                        string? regPath = Environment.GetEnvironmentVariable("PATH", target);
+                        if(!string.IsNullOrEmpty(regPath)) {
+                            foreach(string dir in regPath.Split(Path.PathSeparator)) {
+                                AddDir(Environment.ExpandEnvironmentVariables(dir));
+                            }
+                        }
+                    } catch { }
                 }
 
+                try {
+                    string winget = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "Microsoft", "WinGet");
+                    AddDir(Path.Combine(winget, "Links"));
+
+                    string packages = Path.Combine(winget, "Packages");
+                    if(Directory.Exists(packages)) {
+                        foreach(string pkg in Directory.GetDirectories(packages)) {
+                            AddDir(pkg);
+                            foreach(string sub in Directory.GetDirectories(pkg)) {
+                                AddDir(Path.Combine(sub, "bin"));
+                            }
+                        }
+                    }
+                } catch { }
+            }
+
+            // On Windows try .exe first: an extensionless file is usually a shell-script shim (npm, pip) that Process.Start cannot run.
+            var fileNames = new List<string>();
+            foreach(string baseName in names) {
                 if(isWindows && !baseName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) {
                     string withExe = baseName + ".exe";
                     if(!fileNames.Contains(withExe)) {
                         fileNames.Add(withExe);
                     }
+                }
+
+                if(!fileNames.Contains(baseName)) {
+                    fileNames.Add(baseName);
                 }
             }
 
@@ -314,49 +370,73 @@ public class Core : MelonMod {
         }
     }
 
-    private static string? TryGetVersion(string exe, string args, int timeoutMs = 10000) {
+    private static string? TryGetVersion(string exe, string args, int timeoutMs = 10000, bool logFailure = false) {
+        void Fail(string reason) {
+            if(logFailure) {
+                MelonLogger.Warning($"version check failed [{exe} {args}]: {reason}");
+            }
+        }
+
         try {
             var psi = new ProcessStartInfo {
                 FileName = exe,
                 Arguments = args,
                 RedirectStandardOutput = true,
-                RedirectStandardError = false,
+                RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
 
+            var sw = Stopwatch.StartNew();
             using var process = Process.Start(psi);
             if(process == null) {
+                Fail("process did not start");
                 return null;
             }
+
+            // Drain both pipes concurrently so a chatty child (e.g. ffmpeg -version) cannot block on a full pipe.
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
 
             if(!process.WaitForExit(timeoutMs)) {
                 try {
                     process.Kill();
                 } catch { }
+                Fail($"timed out after {timeoutMs} ms");
                 return null;
             }
 
-            if(process.ExitCode != 0) {
-                return null;
-            }
-
-            string? line = null;
+            string output = string.Empty;
+            string error = string.Empty;
             try {
-                string output = process.StandardOutput.ReadToEnd();
-                if(!string.IsNullOrEmpty(output)) {
-                    foreach(string raw in output.Split('\n')) {
-                        string trimmed = raw.Trim();
-                        if(!string.IsNullOrWhiteSpace(trimmed)) {
-                            line = trimmed;
-                            break;
-                        }
-                    }
+                if(stdoutTask.Wait(3000)) {
+                    output = stdoutTask.Result ?? string.Empty;
+                }
+            } catch { }
+            try {
+                if(stderrTask.Wait(3000)) {
+                    error = stderrTask.Result ?? string.Empty;
                 }
             } catch { }
 
-            return string.IsNullOrWhiteSpace(line) ? null : line.Trim();
-        } catch {
+            if(process.ExitCode != 0) {
+                string err = error.Trim();
+                Fail($"exit={process.ExitCode} after {sw.ElapsedMilliseconds} ms" +
+                    (err.Length > 0 ? $", stderr: {FirstLine(err)}" : string.Empty));
+                return null;
+            }
+
+            foreach(string raw in output.Split('\n')) {
+                string trimmed = raw.Trim();
+                if(!string.IsNullOrWhiteSpace(trimmed)) {
+                    return trimmed;
+                }
+            }
+
+            Fail("no output on stdout");
+            return null;
+        } catch(Exception ex) {
+            Fail(ex.Message);
             return null;
         }
     }

@@ -16,6 +16,7 @@ public static class YtDlpManager {
     public static bool NeedRemoteEjs = false;
     public static bool YtDlpSupportsEjs = true;
     public static bool FfmpegAvailable = false;
+    public static string? FfmpegPath = null;
 
     public static bool IsLoading { get; private set; }
     public static string CurrentUrl = string.Empty;
@@ -310,6 +311,12 @@ public static class YtDlpManager {
             psi.ArgumentList.Add("--audio-format");
             psi.ArgumentList.Add("wav");
             psi.ArgumentList.Add("--newline");
+
+            // ffmpeg may have been found next to the game rather than on PATH, where yt-dlp would not look.
+            if(!string.IsNullOrWhiteSpace(FfmpegPath)) {
+                psi.ArgumentList.Add("--ffmpeg-location");
+                psi.ArgumentList.Add(FfmpegPath!);
+            }
 
             if(YtDlpSupportsEjs) {
                 if(!string.IsNullOrWhiteSpace(JsRuntimesArg)) {
