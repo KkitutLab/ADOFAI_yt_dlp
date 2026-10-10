@@ -28,7 +28,6 @@ public class Core : MelonMod {
             manualJs = (prefJsRuntimePath.Value ?? string.Empty).Trim();
         } catch { }
 
-        // Process probing (yt-dlp.exe can take seconds to start) must not block the Unity main thread.
         var detectTask = Task.Run(() => Detect(manualJs));
         while(!detectTask.IsCompleted) {
             yield return null;
@@ -83,8 +82,6 @@ public class Core : MelonMod {
             ? (autoDenoPath != null ? TryGetVersion(autoDenoPath, "--version") : null)
             : (effDenoPath != null ? TryGetVersion(effDenoPath, "--version") : null);
 
-        // yt-dlp.exe is a PyInstaller onefile build that unpacks itself on every launch,
-        // so its first start (cold cache, antivirus scan, game still loading) can be slow.
         string? ytVersion = ytPath != null ? TryGetVersion(ytPath, "--version", 30000, logFailure: true) : null;
         string? ffmpegVersion = ffmpegPath != null ? TryGetVersion(ffmpegPath, "-version", 10000, logFailure: true) : null;
 
@@ -301,8 +298,6 @@ public class Core : MelonMod {
             } catch { }
 
             if(isWindows) {
-                // The game inherits PATH from Steam, which keeps the PATH it had when it was started.
-                // Tools installed or re-added to PATH since then are only visible in the registry.
                 foreach(var target in new[] { EnvironmentVariableTarget.User, EnvironmentVariableTarget.Machine }) {
                     try {
                         string? regPath = Environment.GetEnvironmentVariable("PATH", target);
@@ -332,7 +327,6 @@ public class Core : MelonMod {
                 } catch { }
             }
 
-            // On Windows try .exe first: an extensionless file is usually a shell-script shim (npm, pip) that Process.Start cannot run.
             var fileNames = new List<string>();
             foreach(string baseName in names) {
                 if(isWindows && !baseName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) {
@@ -394,7 +388,6 @@ public class Core : MelonMod {
                 return null;
             }
 
-            // Drain both pipes concurrently so a chatty child (e.g. ffmpeg -version) cannot block on a full pipe.
             var stdoutTask = process.StandardOutput.ReadToEndAsync();
             var stderrTask = process.StandardError.ReadToEndAsync();
 
